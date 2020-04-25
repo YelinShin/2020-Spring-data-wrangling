@@ -1,0 +1,57 @@
+---
+title: "Untitled"
+author: "Yelin Shin"
+date: "4/3/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+```{r}
+library(magrittr)
+library(dplyr)
+library(tidyverse)
+library(tidytext)
+library(gutenbergr)
+library(wordcloud)
+library(stringr)
+library(broom)
+library(readxl)
+library(rvest)
+library(lubridate)
+library(scales)
+```
+
+```{r}
+# find 2019 popluation data: https://en.wikipedia.org/wiki/List_of_countries_by_population_(United_Nations)
+population2019 <- "https://en.wikipedia.org/wiki/List_of_countries_by_population_(United_Nations)"  %>% read_html() %>% html_table(fill=TRUE) %>% .[[4]]
+
+# https://github.com/datasets/covid-19 : time-series-19-covid-combined.csv
+
+
+```
+
+```{r}
+#national "https://www.cdc.gov/nchs/nvss/vsrr/COVID19/index.htm"
+
+```
+
+```{r}
+# site for US detail data : https://github.com/nytimes/covid-19-data
+# count and show graph how many article is release about corona virus by time series & how many article about corona is there : https://developer.nytimes.com/docs/articlesearch-product/1/overview
+
+https://www.cdc.gov/nchs/nvss/vsrr/COVID19/index.htm
+
+```
+
+
+```{r}
+install.packages("coronavirus")
+library(coronavirus)
+
+coronavirus
+```
