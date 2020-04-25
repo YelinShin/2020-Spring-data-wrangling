@@ -1,7 +1,7 @@
 ---
-title: "Untitled"
+title: "Corona virus data wrangling"
 author: "Yelin Shin"
-date: "4/3/2020"
+date: "5/4/2020"
 output: html_document
 ---
 
@@ -27,16 +27,21 @@ library(scales)
 ```
 
 ```{r}
-# find 2019 popluation data: https://en.wikipedia.org/wiki/List_of_countries_by_population_(United_Nations)
-population2019 <- "https://en.wikipedia.org/wiki/List_of_countries_by_population_(United_Nations)"  %>% read_html() %>% html_table(fill=TRUE) %>% .[[4]]
+# find 2019 popluation data
+Wpopulation2019 <- "https://en.wikipedia.org/wiki/List_of_countries_by_population_(United_Nations)"  %>% read_html() %>% html_table(fill=TRUE) %>% .[[4]]
 
-# https://github.com/datasets/covid-19 : time-series-19-covid-combined.csv
+# worldwide timeseries 
 
-
+Wtime_covid = read_csv("https://raw.githubusercontent.com/datasets/covid-19/master/data/time-series-19-covid-combined.csv")
 ```
 
 ```{r}
 #national "https://www.cdc.gov/nchs/nvss/vsrr/COVID19/index.htm"
+
+N_death_detail = read_csv("https://data.cdc.gov/api/views/hc4f-j6nb/rows.csv?accessType=DOWNLOAD&bom=true&format=true")
+
+N_death_race = read_csv("https://data.cdc.gov/api/views/pj7m-y5uh/rows.csv?accessType=DOWNLOAD&bom=true&format=true")
+
 
 ```
 
@@ -44,14 +49,5 @@ population2019 <- "https://en.wikipedia.org/wiki/List_of_countries_by_population
 # site for US detail data : https://github.com/nytimes/covid-19-data
 # count and show graph how many article is release about corona virus by time series & how many article about corona is there : https://developer.nytimes.com/docs/articlesearch-product/1/overview
 
-https://www.cdc.gov/nchs/nvss/vsrr/COVID19/index.htm
 
-```
-
-
-```{r}
-install.packages("coronavirus")
-library(coronavirus)
-
-coronavirus
 ```
