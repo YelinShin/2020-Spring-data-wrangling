@@ -24,15 +24,88 @@ library(readxl)
 library(rvest)
 library(lubridate)
 library(scales)
+library(choroplethr)
+library(choroplethrMaps)
 ```
 
-```{r}
+```{r message=FALSE}
 # find 2019 popluation data
 Wpopulation2019 <- "https://en.wikipedia.org/wiki/List_of_countries_by_population_(United_Nations)"  %>% read_html() %>% html_table(fill=TRUE) %>% .[[4]]
 
-# worldwide timeseries 
+Wpopulation2019 <-  Wpopulation2019 %>% separate('Country or area', c("country", "erase"), sep = "\\[") %>% select(-erase,-'UN statisticalregion[4]',-'Population(1 July 2018)',-Change) 
 
+names(Wpopulation2019)[names(Wpopulation2019) == "UN continentalregion[4]"] <- "region"
+names(Wpopulation2019)[names(Wpopulation2019) == "Population(1 July 2019)"] <- "population"
+```
+
+```{r}
+Wpopulation2019$country <- tolower(Wpopulation2019$country)
+Wpopulation2019$population <- as.numeric(gsub(",","",Wpopulation2019$population))
+
+data(country.regions)
+names(country.regions)[names(country.regions) == "region"] <- "country"
+matched = inner_join(country.regions["country"], Wpopulation2019["country"], by ="country")
+
+rename = setdiff(country.regions$country,matched$country)
+rename
+
+#antartica, kosovo is not exist in Wpopulation2019
+Wpopulation2019$country[Wpopulation2019$country == "north macedonia"] <- "macedonia"
+Wpopulation2019$country[Wpopulation2019$country == "united states"] <- "united states of america"
+Wpopulation2019$country[Wpopulation2019$country == "somaliland"] <- "somalia"
+Wpopulation2019$country[Wpopulation2019$country == "serbia"] <- "republic of serbia"
+Wpopulation2019$country[Wpopulation2019$country == "tanzania"] <- "united republic of tanzania"
+Wpopulation2019$country[Wpopulation2019$country == "bahamas"] <- "the bahamas"  
+Wpopulation2019$country[Wpopulation2019$country == "dr congo"] <- "democratic republic of the congo"
+Wpopulation2019$country[Wpopulation2019$country == "congo"] <- "republic of congo"   
+Wpopulation2019$country[Wpopulation2019$country == "cyprus"] <- "northern cyprus"
+Wpopulation2019$country[Wpopulation2019$country == "guinea-bissau"] <- "guinea bissau"
+Wpopulation2019$country[Wpopulation2019$country == "eswatini"] <- "swaziland"
+
+Wpopulation2019
+```
+
+```{r}
+# worldwide timeseries 
 Wtime_covid = read_csv("https://raw.githubusercontent.com/datasets/covid-19/master/data/time-series-19-covid-combined.csv")
+```
+
+```{r}
+names(Wtime_covid)[names(Wtime_covid) == "Country/Region"] <- "country"
+Wtime_covid$country <- tolower(Wtime_covid$country)
+
+time_country= unique(Wtime_covid$country)
+df <- data.frame(matrix(unlist(time_country), nrow=length(time_country), byrow=T))
+
+matched2 = inner_join(country.regions["country"], Wtime_covid["country"], by ="country")
+rename2 = setdiff(country.regions$country,matched2$country)
+rename2
+
+#north korea, solomon islands, somaliland, turkmenistan, vanuatu, ivory coast, northern cyprus, antarctica, lesotho
+Wtime_covid$country[Wtime_covid$country == "north macedonia"] <- "macedonia"
+Wtime_covid$country[Wtime_covid$country == "burma"] <- "myanmar"
+Wtime_covid$country[Wtime_covid$country == "us"] <- "united states of america"
+Wtime_covid$country[Wtime_covid$country == "serbia"] <- "republic of serbia"
+Wtime_covid$country[Wtime_covid$country == "eswatini"] <- "swaziland"
+Wtime_covid$country[Wtime_covid$country == "timor-leste"] <- "east timor"
+Wtime_covid$country[Wtime_covid$country == "taiwan*"] <- "taiwan"
+Wtime_covid$country[Wtime_covid$country == "tanzania"] <- "united republic of tanzania"
+Wtime_covid$country[Wtime_covid$country == "bahamas"] <- "the bahamas"
+Wtime_covid$country[Wtime_covid$country == "congo (kinshasa)"] <- "democratic republic of the congo"
+Wtime_covid$country[Wtime_covid$country == "congo (brazzaville)"] <- "republic of congo"
+Wtime_covid$country[Wtime_covid$country == "czechia"] <- "czech republic"
+Wtime_covid$country[Wtime_covid$country == "guinea-bissau"] <- "guinea bissau"
+Wtime_covid$country[Wtime_covid$country == "korea, south"] <- "south korea"
+
+wtime_covid_final = left_join(Wtime_covid,Wpopulation2019, by='country') %>%
+  select("Date","country","region","Confirmed","Recovered","Deaths","population")
+
+getwd()
+write.csv(wtime_covid_final,"word_covid19_timeseries.csv")
+```
+
+```{r}
+
 ```
 
 ```{r}
