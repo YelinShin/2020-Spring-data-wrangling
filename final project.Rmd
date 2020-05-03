@@ -11,7 +11,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## R Markdown
 
-```{r message=FALSE}
+```{r message=FALSE,echo=FALSE}
 library(magrittr)
 library(dplyr)
 library(tidyverse)
@@ -27,9 +27,10 @@ library(scales)
 library(choroplethr)
 library(gridExtra)
 library(choroplethrMaps)
+library(plotly)
 ```
 
-```{r message=FALSE, warning=FALSE}
+```{r message=FALSE, warning=FALSE,echo=FALSE}
 # find 2019 popluation data
 Wpopulation2019 <- "https://en.wikipedia.org/wiki/List_of_countries_by_population_(United_Nations)"  %>% read_html() %>% html_table(fill=TRUE) %>% .[[4]]
 
@@ -39,7 +40,8 @@ names(Wpopulation2019)[names(Wpopulation2019) == "UN continentalregion[4]"] <- "
 names(Wpopulation2019)[names(Wpopulation2019) == "Population(1 July 2019)"] <- "population"
 ```
 
-```{r}
+
+```{r,echo=FALSE}
 Wpopulation2019$country <- tolower(Wpopulation2019$country)
 Wpopulation2019$population <- as.numeric(gsub(",","",Wpopulation2019$population))
 
@@ -66,7 +68,7 @@ Wpopulation2019$region[Wpopulation2019$region == "eswatini"] <- "swaziland"
 head(Wpopulation2019,3)
 ```
 
-```{r}
+```{r,echo=FALSE}
 # worldwide timeseries 
 Wtime_covid = read_csv("https://raw.githubusercontent.com/datasets/covid-19/master/data/time-series-19-covid-combined.csv") 
 
@@ -77,7 +79,7 @@ names(Wtime_testing)[names(Wtime_testing) == "Cumulative total"] <- "cumulative_
 
 
 
-```{r}
+```{r,echo=FALSE}
 names(Wtime_covid)[names(Wtime_covid) == "Country/Region"] <- "region"
 Wtime_covid$region <- tolower(Wtime_covid$region)
 
@@ -115,7 +117,7 @@ Wtime_covid %>%
 
 ```
 
-```{r warning=FALSE}
+```{r warning=FALSE,echo=FALSE}
 #getting latest update from each country's testing number
 Wtime_testing <-  Wtime_testing %>% 
   separate('Entity', c("region", "erase"), sep = " - ") %>% 
@@ -136,9 +138,7 @@ rename3
 #hongkong, serbia is missing in Wtime_testing
 Wtime_testing$region[Wtime_testing$region == "united states"] <- "united states of america"
 
-```
 
-```{r}
 wtime_covid_final = left_join(Wtime_covid,Wpopulation2019, by='region') %>%
   select("Date","region","region","confirmed","recovered","deaths","actives","population")
 
@@ -150,8 +150,31 @@ write.csv(wtime_covid_final,"word_covid19_timeseries.csv")
 wtime_covid_final[sample(nrow(wtime_covid_final), 3), ]
 ```
 
+```{r warning=FALSE,echo=FALSE}
+# find top 10 world rank by GDP
+GDP.ranking <- "https://en.wikipedia.org/wiki/List_of_countries_by_GDP_(nominal)"  %>% read_html() %>% html_table(fill=TRUE) %>% .[[6]]
 
-```{r}
+GDP.ranking30 <-  GDP.ranking %>% 
+  separate('Country/Territory', c("region", "erase"), sep = "\\[") %>% 
+  select(-erase,-'GDP(US$million)') %>% filter(!is.na(as.numeric(Rank))) %>%
+  mutate(rank = as.integer(Rank))%>%
+  select(-Rank)%>%
+  arrange(rank) %>%
+  head(30)
+  
+
+GDP.ranking30$region <- tolower(GDP.ranking30$region)
+
+matched2 = inner_join(wtime_covid_final["region"], GDP.ranking30["region"], by ="region")
+rename3 = setdiff(GDP.ranking30$region,wtime_covid_final$region)
+rename3
+
+GDP.ranking30$region[GDP.ranking30$region == "united states"] <- "united states of america"
+GDP.ranking30$region[GDP.ranking30$region == "korea, south"] <- "south korea"
+```
+
+
+```{r,echo=FALSE}
 w_latest_covid = wtime_covid_final %>%
   group_by(region) %>%
   filter(Date == max(Date) ) %>%
@@ -171,7 +194,7 @@ write.csv(final.w_latest_covid,"word_covid19_latest.csv")
 head(final.w_latest_covid,3)
 ```
 
-```{r, message=FALSE, warning=FALSE}
+```{r, warning=FALSE,echo=FALSE}
 
 w_latest_covid %>%
   arrange(desc(actives)) %>%
@@ -202,24 +225,79 @@ grid.arrange(country_choropleth(w_latest_covid.actives, title  = "Number of acti
 deep research with testing.
 ratio of confirmed out of testing.
 
-```{r}
-#install.packages("plotly")
-library(plotly)
+```{r, warning=FALSE,echo=FALSE}
+#confirmed line graph by top30 countries ~ time
+a= wtime_covid_final %>%
+  group_by(region)%>%
+  filter(region %in% GDP.ranking30$region) %>%
+  plot_ly(x = ~Date, y = ~confirmed, color = ~region, type = 'scatter', mode = 'lines')
 
-confirmed.ratio = w_latest_covid %>%
-  filter (!is.na(cumulative_test)) %>%
-  mutate ( confirmed.ratio = (confirmed/cumulative_test) *100) %>%
-  arrange( desc(confirmed.ratio))
+#confirmed/population line graph by top30 countries ~ time
+b= wtime_covid_final %>%
+  filter(!is.na(population))%>%
+  mutate(confirmed.rate = (confirmed/population)*100) %>%
+  group_by(region)%>%
+  filter(region %in% GDP.ranking30$region) %>%
+  plot_ly(x = ~Date, y = ~confirmed.rate, color = ~region, type = 'scatter', mode = 'lines')
 
-confirmed.ratio$region <- factor(confirmed.ratio$region, levels = confirmed.ratio$region[order(confirmed.ratio$confirmed.ratio, decreasing = TRUE)]) 
 
-ggplot(data = confirmed.ratio, aes(x = region, y=confirmed.ratio))+ theme(axis.text.x = element_text(angle=45, hjust = 1)) +  geom_bar(stat="identity")
+f <- list(
+  family = "Courier New, monospace",
+  size = 10,
+  color = "black")
 
-ggplotly()
+a1 <- list(
+  text = "Confirmed rate change \n in top 30 countries (by GDP)",
+  font = f,
+  xref = "paper",
+  yref = "paper",
+  yanchor = "bottom",
+  xanchor = "center",
+  align = "center",
+  x = 0.5,
+  y = 1,
+  showarrow = FALSE
+)
+
+b1 <- list(
+  text = "Confirmed rate change \n in top 30 countries (by GDP)",
+  font = f,
+  xref = "paper",
+  yref = "paper",
+  yanchor = "bottom",
+  xanchor = "center",
+  align = "center",
+  x = 0.5,
+  y = 1,
+  showarrow = FALSE
+)
+
+subplot(a %>%layout(annotations = a1),b %>% layout(annotations = b1),margin = 0.07)
 ```
 
-```{r}
+```{r,echo=FALSE}
+w.test_ratio = w_latest_covid %>%
+  filter (!is.na(cumulative_test) & !is.na(population)) %>%
+  mutate ( test.ratio = (cumulative_test/population) *100) %>%
+  arrange( desc(test.ratio))
 
+w.test_ratio$region <- factor(w.test_ratio$region, levels = w.test_ratio$region[order(w.test_ratio$test.ratio, decreasing = TRUE)]) 
+
+test.bar = ggplot(data = w.test_ratio, aes(x = region, y=test.ratio))+ theme(axis.text.x = element_text(angle=45, hjust = 1)) +  geom_bar(stat="identity")
+
+ggplotly(test.bar) %>% layout(title = "Cumulative test number / population rate in the world")
+
+
+top30.test_ratio=  w.test_ratio%>%
+  filter(region %in% GDP.ranking30$region)
+
+top30.test_ratio$region <- factor(top30.test_ratio$region, levels = top30.test_ratio$region[order(match(top30.test_ratio$region,GDP.ranking30$region))]) 
+
+
+test.bar.30 = ggplot(data = top30.test_ratio, aes(x = region, y=test.ratio))+ theme(axis.text.x = element_text(angle=90, hjust = 1)) +  geom_bar(stat="identity")
+
+#since some country doesn't share the cumulative test number, it won't contain all 30 countries.
+ggplotly(test.bar.30) %>% layout(title = "Cumulative test number / population rate in top country")
 
 ```
 
@@ -230,7 +308,7 @@ ggplotly()
 
 
 
-```{r}
+```{r,echo=FALSE}
 have_testing = w_latest_covid %>%
   filter (!is.na(cumulative_test)) %>%
   mutate ( negative = cumulative_test - confirmed,
