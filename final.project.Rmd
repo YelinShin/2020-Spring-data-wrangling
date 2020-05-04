@@ -49,7 +49,7 @@ library(base)
 ```
 
 
-# Data set (1):
+# Data set 1:
 
 1.	The main world time series dataset is from GitHub, "https://github.com/datasets/covid-19/blob/master/data/time-series-19-covid-combined.csv". Since the data contains detail information about the province/state in each country, I summarize each cases number by country and date. So, it will contain only one pair of (country, date).
 
