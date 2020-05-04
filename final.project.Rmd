@@ -1,5 +1,5 @@
 ---
-title: "Corona virus data wrangling"
+title: "Data wrangling with Covid-19"
 author: "Yelin Shin"
 date: "5/4/2020"
 output:
