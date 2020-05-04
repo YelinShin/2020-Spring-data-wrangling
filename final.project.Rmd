@@ -19,7 +19,8 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # Introduction:
 
-  Around late December 2019, people got notice about a virus that was speared from China. After the virus got spread quickly, WHO named it as Covid-19 and decided as epidemic. However, at that time, people in non-Asian country underestimated how fast the virus can be spread to their countries. Therefore, most of the countries were not prepared and faced rapid increase of confirmed case and even death case from the virus. In current situation, people wonder when the virus have a lull by number and data visualization. 
+  Around late December 2019, people got notice about a virus that was speared from China. After the virus got spread quickly, WHO named it as Covid-19 and decided as epidemic. However, at that time, people in non-Asian country underestimated how fast the virus can be spread to their countries. Therefore, most of the countries were not prepared and faced rapid increase of confirmed cases and even death cases from the virus. Also, it is relative to our class because of the virus, every classes hold lectures remotely. Therefore, in current situation, people wonder when the virus have a lull. I decided to show the changes by various data visualization.
+
 
 ```{r message=FALSE,echo=FALSE}
 library(magrittr)
@@ -47,32 +48,46 @@ library(base)
 
 # Data set (1):
 
-  The main world time series dataset is from github, "https://github.com/datasets/covid-19/blob/master/data/time-series-19-covid-combined.csv". Since the time series corona case file contains 2018 population of each countries, I decided to change the number to 2019 population from wikipedia, https://en.wikipedia.org/wiki/List_of_countries_by_population_(United_Nations) by web-scrapping the page. Also, I grab the time-series update of the number of tested case in each countries by "https://github.com/owid/covid-19-data/blob/master/public/data/testing/covid-testing-all-observations.csv". This csv file contains too many information and the country name contains '- tests performed', I extract the country name only and the current update of testing number. Moreover, some countries have 2 resources to track the testing number. So I fix one resource per country. After I got the 3 cleaned data, I use join to get the finalized data that contains all the cases, test, and population. Moreover, I make a table for latest updated case number for each countries. Since some countries did not update/share the testing number everyday, I grab most recent number of testing into this table. Lastly, I get the world ranking by GDP from wikipedia ("https://en.wikipedia.org/wiki/List_of_countries_by_GDP_(nominal)" ). Since there is too many countries in the data, it is better to show subset of countries. Therefore, it is good to show the economically developed countires for data visuialization.
+1.	The main world time series dataset is from GitHub, "https://github.com/datasets/covid-19/blob/master/data/time-series-19-covid-combined.csv". Since the data contains detail information about the province/state in each country, I summarize each cases number by country and date. So, it will contain only one pair of (country, date).
 
-  For all data source, I edit the countries' name to match with 'country.regions' to use chroplethrMaps. However, some of the countries are not covered by 'country.regions' so it will not appear in maps.
-  
+2.	The time series corona case file contains 2018 population of each countries. Therefore, I decided to change the number to 2019 population from Wikipedia, https://en.wikipedia.org/wiki/List_of_countries_by_population_(United_Nations) by web-scrapping the page. Since the population formatted with comma, I erased the comma then converted it to number type
 
+3.	Also, I grab the time-series update of the number of tested cases in each country by "https://github.com/owid/covid-19-data/blob/master/public/data/testing/covid-testing-all-observations.csv". This csv file contains too many information and the country name contains '- tests performed', I extract the country name only and the current update of testing number. Moreover, some countries have 2 resources to track the testing number. 
+
+4.	So, I fix one resource per country. After I got the 3 cleaned data, I use join to get the finalized data that contains all the cases, test, and population. Moreover, I make a table for latest updated case number for each country. Since some countries did not update/share the testing number every day, I grab most recent number of testing into this table, and put active number by mutate. (Active = confirmed – deaths – recovered). When I joined the latest Covid and latest testing data, I based on latest Covid date since sometime the publisher update testing dataset faster than Covid dataset
+
+5.	Lastly, I get the world ranking by GDP from Wikipedia ("https://en.wikipedia.org/wiki/List_of_countries_by_GDP_(nominal)”). Since there are too many countries in the data, it is better to show subset of countries. Therefore, it is good to show the economically developed countries for data visualization.
+
+For all data source, I edit the countries' name to match with 'country.regions' to use chroplethrMaps.
+
+\  
 ```{r message=FALSE, warning=FALSE,echo=FALSE}
 # find 2019 popluation data
 Wpopulation2019.raw <- "https://en.wikipedia.org/wiki/List_of_countries_by_population_(United_Nations)"  %>% read_html() %>% html_table(fill=TRUE) %>% .[[4]]
 
-
+# extract country name without note notation
 Wpopulation2019 <-  Wpopulation2019.raw %>% separate('Country or area', c("country", "erase"), sep = "\\[") %>% select(-erase,-'UN statisticalregion[4]',-'Population(1 July 2018)',-Change) 
 
+#change column name
 names(Wpopulation2019)[names(Wpopulation2019) == "UN continentalregion[4]"] <- "continent"
 names(Wpopulation2019)[names(Wpopulation2019) == "Population(1 July 2019)"] <- "population"
 
-Wpopulation2019$country <- tolower(Wpopulation2019$country)
+#convert the string representation of population with comma into number
 Wpopulation2019$population <- as.numeric(gsub(",","",Wpopulation2019$population))
 
+# Prepare for Wpopulation2019 to match with country.region
 data(country.regions)
+
+Wpopulation2019$country <- tolower(Wpopulation2019$country)
+
 names(Wpopulation2019)[names(Wpopulation2019) == "country"] <- "region"
 matched = inner_join(country.regions["region"], Wpopulation2019["region"], by ="region")
 
+# Find what countries have to change their name
 rename = setdiff(country.regions$region,matched$region)
 # rename
 
-#antartica, kosovo is not exist in Wpopulation2019
+# except non matched countries, I convert the name to follow country.region
 Wpopulation2019$region[Wpopulation2019$region == "north macedonia"] <- "macedonia"
 Wpopulation2019$region[Wpopulation2019$region == "united states"] <- "united states of america"
 Wpopulation2019$region[Wpopulation2019$region == "somaliland"] <- "somalia"
@@ -97,20 +112,23 @@ Wtime_testing.raw = read_csv("https://raw.githubusercontent.com/owid/covid-19-da
 Wtime_covid = Wtime_covid.raw
 Wtime_testing = Wtime_testing.raw
 
+#convert column names for both covid and testing data
 names(Wtime_testing)[names(Wtime_testing) == "Cumulative total"] <- "cumulative_test"
 names(Wtime_testing)[names(Wtime_testing) == "Source URL"] <- "source"
-
 names(Wtime_covid)[names(Wtime_covid) == "Country/Region"] <- "region"
+
+# First start to clean out the covid timeseries data
 Wtime_covid$region <- tolower(Wtime_covid$region)
 
 time_country= unique(Wtime_covid$region)
 df <- data.frame(matrix(unlist(time_country), nrow=length(time_country), byrow=T))
 
+# Find what countries have to change their name
 matched2 = inner_join(country.regions["region"], Wtime_covid["region"], by ="region")
 rename2 = setdiff(country.regions$region,matched2$region)
 #rename2
 
-#north korea, solomon islands, somaliland, turkmenistan, vanuatu, ivory coast, northern cyprus, antarctica, lesotho
+# except non matched countries, I convert the name to follow country.region
 Wtime_covid$region[Wtime_covid$region == "north macedonia"] <- "macedonia"
 Wtime_covid$region[Wtime_covid$region == "burma"] <- "myanmar"
 Wtime_covid$region[Wtime_covid$region == "us"] <- "united states of america"
@@ -135,31 +153,35 @@ Wtime_covid = Wtime_covid %>%
 ```
 
 ```{r warning=FALSE,echo=FALSE}
-#getting latest update from each country's testing number
+# 2. clean up the testing dataset 
+
+#extract only the country name from testing dataset
 Wtime_testing <-  Wtime_testing %>% 
   separate('Entity', c("region", "erase"), sep = " - ") %>% 
   select(region,Date,erase,cumulative_test)
 
+# select one resource's number for each country
 select.one.resource=Wtime_testing %>%
   group_by(region) %>%
   summarize(erase =max(erase))
 
-Wtime_testing = inner_join(Wtime_testing, select.one.resource, by= c("region","erase")) # some country contains 2 sources for testing, so only grab one
-
-
+# inner join with testing and selected source, so it will contain one source per country
+Wtime_testing = inner_join(Wtime_testing, select.one.resource, by= c("region","erase"))
 Wtime_testing$region <- tolower(Wtime_testing$region)
 
+# Find what countries have to change their name
 testing= unique(Wtime_testing$region)
 df <- data.frame(matrix(unlist(testing), nrow=length(testing), byrow=T))
-
 matched2 = inner_join(Wtime_covid["region"], Wtime_testing["region"], by ="region")
-
 rename3 = setdiff(Wtime_testing$region,matched2$region)
 #rename3
 
-#hongkong, serbia is missing in Wtime_testing
+#summarize the number of the province/state in each country
 Wtime_testing$region[Wtime_testing$region == "united states"] <- "united states of america"
 
+
+# finally, joining all information into one final timeseries file (containing population and testing number)
+# testing number is join by country-date
 
 wtime_covid_final = left_join(Wtime_covid,Wpopulation2019, by='region') %>%
   select("Date","region","region","confirmed","recovered","deaths","actives","population")
@@ -167,13 +189,14 @@ wtime_covid_final = left_join(Wtime_covid,Wpopulation2019, by='region') %>%
 wtime_covid_final = left_join(wtime_covid_final,Wtime_testing, by =c('region', 'Date')) %>%
   select("Date","region","region","confirmed","recovered","deaths","actives","cumulative_test","population")
 
+#export the data to csv
 write.csv(wtime_covid_final,"word_covid19_timeseries.csv")
 
 ```
 
 
-
 ```{r,echo=FALSE, warning=FALSE}
+# make latest update from each country
 latest.testing = wtime_covid_final %>%
   filter(!is.na(cumulative_test)) %>%
   group_by(region) %>%
@@ -186,11 +209,13 @@ w_latest_covid = wtime_covid_final %>%
   mutate(actives = confirmed - recovered - deaths) %>%
   arrange(desc(actives))
 
+#since sometime testing update faster than covid timeseries, I based on the covid data.
 latest_test = Wtime_testing %>%
   group_by(region) %>%
-  filter(Date <= max(w_latest_covid$Date)) %>% #since sometime testing update faster than worldwide timeseries
+  filter(Date <= max(w_latest_covid$Date)) %>%
   filter(Date == max(Date))
 
+#Finalize the latest covid data
 final.w_latest_covid = left_join(w_latest_covid, latest_test, by = "region") %>%
   mutate(cumulative_test= cumulative_test.y) %>%
   select(- c("Date.y","cumulative_test.x","cumulative_test.y","erase"))
@@ -204,6 +229,7 @@ write.csv(final.w_latest_covid,"word_covid19_latest.csv")
 # find top 30 world rank by GDP
 GDP.ranking.raw <- "https://en.wikipedia.org/wiki/List_of_countries_by_GDP_(nominal)"  %>% read_html() %>% html_table(fill=TRUE) %>% .[[6]]
 
+# extract only the country name and order by ascending rank
 GDP.ranking <-  GDP.ranking.raw %>% 
   separate('Country/Territory', c("region", "erase"), sep = "\\[") %>% 
   select(-erase,-'GDP(US$million)') %>% filter(!is.na(as.numeric(Rank))) %>%
@@ -211,13 +237,14 @@ GDP.ranking <-  GDP.ranking.raw %>%
   select(-Rank)%>%
   arrange(rank)
   
-
+# Find what countries have to change their name
 GDP.ranking$region<- tolower(GDP.ranking$region)
 
 matched2 = inner_join(wtime_covid_final["region"], GDP.ranking["region"], by ="region")
 rename3 = setdiff(GDP.ranking$region,wtime_covid_final$region)
 #rename3
 
+# except non matched countries, I convert the name to follow country.region
 GDP.ranking$region[GDP.ranking$region == "united states"] <- "united states of america"
 GDP.ranking$region[GDP.ranking$region == "korea, south"] <- "south korea"
 GDP.ranking$region[GDP.ranking$region == "tanzania" ]<-"united republic of tanzania"
@@ -234,6 +261,7 @@ GDP.ranking$region[GDP.ranking$region == "congo, republic of the"] <- "democrati
 ## Raw table looks like ...
 
 ```{r warning=FALSE,echo=FALSE}
+#show the look of raw data with kable, markdown format
 kable(Wtime_covid.raw[sample(nrow(Wtime_covid.raw), 2), ],"markdown") %>% kable_styling(font_size = 7) %>%
    add_footnote("Random 2 rows in world time-series covid 19", notation="alphabet")
 
@@ -253,6 +281,7 @@ kable(GDP.ranking.raw[sample(nrow(GDP.ranking.raw), 2), ],"markdown")%>% kable_s
 ## After Join and clean up... 
 
 ```{r warning=FALSE,echo=FALSE,fig.cap = "head"}
+#show the look of cleaned data with kable, markdown format
 a = wtime_covid_final %>%
   filter(!is.na(cumulative_test))
 
@@ -275,11 +304,14 @@ kable(head(GDP.ranking,10),"markdown")%>%
 
   Now we can get the most updated number of each cases (confirmed, recovered, death, actives) in the world. 
 
-  The number of actives in world is still over 2 million cases. And I am quite surprise that the number of recovered is almost one-thrid of confirmed cases. It indicates that good amount of confirmed people get cured by medicine or self-recovered. Since lots of countries' hospitals face frontlines of crisis because of coronavirus, the number of people get recovered is important number to see for checking whether the virus blows over.
+  By looking at the table, the number of actives in world is still over 2 million cases. And I was quite surprise that the number of recovered is almost one-third of confirmed cases. It indicates that good amount of confirmed people cured by medicine or self-recovered. Since lots of countries' hospitals face frontlines of crisis because of coronavirus, the number of people get recovered is important number to see for checking whether the virus blows over.
   
-  The time-line of each case is helpful to understand overall situation and changes.
+  The time-line of each case is also helpful to understand overall situation and changes. Even though number of confirmed have high slope and uptrend, active number’s slop winces little compare to past month or weeks. 
+
 \  
+
 ```{r, echo=FALSE, warning=FALSE,fig.height = 3, fig.width = 6, fig.align = "center"}
+# To get world cumulative number until latest update, summarize all countries and get the sum of each cases number. Then kable the result.
 most.update = final.w_latest_covid %>%
   mutate(all= "all") %>%
   group_by(all)%>%
@@ -288,11 +320,12 @@ most.update = final.w_latest_covid %>%
 
 kable(most.update,"markdown")
 
+#To show world cumulative number by timeseries, group by the date and summarise the number with sum.
 world.case.timeline=wtime_covid_final %>%
   group_by(Date) %>%
   summarize(confirmed= sum(confirmed), recovered = sum(recovered), deaths = sum(deaths), actives = sum(actives))
 
-
+# To show legend line graph, use gather to put each case into type by country.
 world.case.timeline=world.case.timeline %>% gather(c("confirmed", "recovered", "deaths", "actives"), key="type", value="number") %>%
   arrange(Date)
 
@@ -300,11 +333,9 @@ ggplot(world.case.timeline,aes(x=Date, y=number, color=type)) + geom_line() + la
 ```
 
 
-## World map by active cases number and rate
+## World map by active cases number and rate (by population)
 
-  Since we have worldwide active case, it is good to visualize what continent/country have more active case than other. 
-
-  I tried to plot the graph in two ways because the actives case is depend on the population of country. When you see the bottom two tables, the top active countries would not show up in top active rate countries since their number is relatively small in population.
+  Since we have worldwide active case, it is good to visualize what continent/country have more active case than other. Therefore, I tried to visualize the map in two ways because the actives case is depending on the population of country. In the bottom two tables, the top active countries would not show up in top active rate countries since their number is relatively small in population.
 
 \  
 
@@ -328,11 +359,11 @@ kable(final.w_latest_covid %>%
 
 ```
 \  
-  When we see the bottom two graphs, some countries have more lighter or darker color in active rate map compare to active number itself. Norway, Ireland, Gabon, and Chile have darker color in rate map.
+  The bottom two graphs shows some countries have lighter or darker color in active rate map compare to active number itself. Norway, Ireland, Gabon, and Chile have darker color in rate map.
 
 \  
 ```{r,warning=FALSE,echo=FALSE, fig.align = "center"}
-#active number / population
+# To show the number in map, we have to rename columns to match the format 
 w_latest_covid.actives <- final.w_latest_covid %>%
   select(region, actives,population) %>%
   rename(region = region, value = actives)
@@ -342,28 +373,34 @@ w_latest_covid.actives_ratio <- final.w_latest_covid %>%
   mutate(active_ratio = actives/population) %>%
   rename(region = region, value = active_ratio)
 
-grid.arrange(country_choropleth(w_latest_covid.actives, title  = "Number of active case in world"),country_choropleth(w_latest_covid.actives_ratio, title  = "Ratio of active by population in word"))
+#show 2 plot in same figure
+grid.arrange(country_choropleth(w_latest_covid.actives, title  = "Number of active case in world"),country_choropleth(w_latest_covid.actives_ratio, title  = "Active rate by population in word"))
 ```
 
 
 ## Confirmed cases and Confirmed ratio by population
 
-  To look the number deeply, I plot the number of confirmed cases and confirmed rate by time line in specific countries. I plot the rate by population because it makes easy to compare various countries in a one plot. Also, I chose top 10 GDP ranked countries' cases since most of people have interested to see the number in developed countries, and how they deal with this situation. 
-  
-  Before March, most countires have very low confirmed cases, except China. So I checked up the first date of testing case in countries. Even though some countries started testing in January and Feburary, they did not get confirmed case that much. However, after mid-March the graph starts to increase a lot especially in United States. 
 
-  However, rapid increase in U.S. confirmed cases does not mean that U.S. people tend to have positive result in testing than other countries. Therefore, if I look the right plot (confirmed rate), actually Italy has higher confirmed rate than U.S. Also most of countries have more rapid change in rate. 
+  To look the number deeply, I first plotted the number of confirmed cases and confirmed rate by time in specific countries. I used rate by population because it makes easy to compare various countries in a one plot. Also, I chose only top 10 GDP ranked countries' cases since most of people have interested to see the number in developed countries, and how they deal with this situation. 
+  
+  Before March, most countries have very low confirmed cases, except China. So, I checked up the first date of testing case in countries. Even though some countries started testing in January and February, they did not get confirmed case that much. However, after mid-March the graph starts to have sharp increasement especially in United States. 
+
+  However, rapid increase in U.S. confirmed cases does not mean that U.S. people tend to have positive result in testing than other countries. Therefore, if I look the right plot (confirmed rate), actually Italy has higher confirmed rate than U.S. Also, in rate plot shows better to understand that actually most of countries have more rapid change around mid-March.
+
   
 \  
 
 ```{r, warning=FALSE,echo=FALSE}
+# grab top 10 ranked country
 GDP.ranking10 = head(GDP.ranking,10)
 
+# file the confirmed rate by population (I exlcude contries that doens't share population)
 confirm.change = wtime_covid_final %>%
   filter(!is.na(population))%>%
   mutate(confirmed.rate = (confirmed/population)*100) %>%
   filter(region %in% GDP.ranking10$region) 
 
+#order the plot by GDP ranking
 confirm.change$region <- factor(confirm.change$region, levels = unique(confirm.change$region[order(match(confirm.change$region,GDP.ranking10$region))])) 
 
 
@@ -377,42 +414,47 @@ confirm.change2 =ggplot(confirm.change,aes(x=Date, y=confirmed.rate, color=regio
 
 ggarrange(confirm.change1, confirm.change2, nrow=1, ncol=2,labels = c("confirmed case","confirmed rate"),common.legend = TRUE,legend="bottom")
 
-```
-
-## Testing number changes 
-
-  After I figure out the confirmed case is depend on population, I realize I have to compare cumulative testing number change also. Since lots of countries do not have enough number of covid-19 testing kit, there might be some countries have lower confirmed cases because they did not test enough. Also, some people said the number of testing in developed countries bursted their bubble. They thought developed countries can deal with the virus, but in fact, they also facing difficulty with supplying sanitized product such as mask, sanitizer, gloves, and etc.  
-
-  By looking at the change in testing in time, most of countries have rapid increase stat at March, but interestingly in India and Japan has the increase point at April even though they are Asian countries which located close to China.
-  
-&nbsp;
-```{r, warning=FALSE,echo=FALSE,fig.height = 4, fig.width = 6, fig.align = "center"}
+# find the first date of top10 countries get confirmed case
 test.time = Wtime_testing %>% 
   filter(region %in% GDP.ranking10$region) %>%
   filter (cumulative_test>0)
 
+# rank by GDP ranked 
 test.time$region <- factor(test.time$region, levels = unique(test.time$region[order(match(test.time$region,GDP.ranking10$region))])) 
 
-
+# kable the min confirmed date of each ountry.
 kable(test.time %>% 
   group_by(region)%>%
   summarise(first_testing = min(Date)),"markdown")
 
-ggplot(test.time,aes(x=Date, y=cumulative_test, color=region)) + geom_line() + labs("Top 10 countries' test case")
 
 ```
-Note: Since China and Brazil did not provide their number of testing, the testing numer change did not contain those two countries.
 
 ## Testing number changes 
 
-  By looking at the upper plot, it shows that top rank countries does not gurantee they test covid-19. Japan is rank #2 country, but they are the least testing country in May. 
+  After I figured out the confirmed case is depending on population, I decided to compare cumulative testing number change also. Since lots of countries do not have enough number of covid-19 testing kit, there might be some countries have lower confirmed cases because they did not test enough. Also, some people said the number of testing in developed countries busted their bubble. They thought developed countries can deal with the virus, but in fact, they also facing difficulty with supplying sanitized product such as mask, sanitizer, gloves, and etc.  
 
-  To investigate this graph further, I plot the bar plot of tested rate by their populations. If the rate is way small, then it may indicate that country only test a person who has serious symptom because they have lack of physician or doctor, or their population is comparatively larger than others
+  By looking at the change in testing in time, most of countries have rapid increase stat at March, but interestingly in India and Japan has the increase point at April even though they are Asian countries which located close to China.
+  
+\  
+```{r, warning=FALSE,echo=FALSE,fig.height = 4, fig.width = 6, fig.align = "center"}
+
+ggplot(test.time,aes(x=Date, y=cumulative_test, color=region)) + geom_line() + ggtitle("Top 10 countries' testing case in timeline")
+
+```
+Note: Since China and Brazil does not provide their number of testing, the testing cases change does not contain those two countries.
+
+\  
+  By looking at the upper plot, it shows that top rank countries do not guarantee they test covid-19. Japan is rank #2 country, but they are the least testing country in May. 
+
+  To investigate this graph further, I plot the bar plot of tested rate by their populations. If the rate is way small, then it may indicate that country only test a person who has serious symptom because they have lack of physician or doctor, or their population is comparatively larger than others. 
   
   U.S., Japan, India have relatively small test rate compare to other top countries. Since I order the bar plot by the world rank, it clearly shows that world ranking is not following the trend of tested ratio.
-  
-```{r,echo=FALSE,warning=FALSE,echo=FALSE,fig.height = 4, fig.width = 6, fig.align = "center"}
 
+Note: Since some of the countries do not share the cumulative testing number, I plotted top 10 countries who share it.
+\  
+```{r,echo=FALSE,warning=FALSE,echo=FALSE,fig.height = 4, fig.width = 6, fig.align = "center"}
+# mutate the test.ratio by cumulative test over population 
 w.test_ratio = final.w_latest_covid %>%
   filter (!is.na(cumulative_test) & !is.na(population)) %>%
   mutate ( test.ratio = (cumulative_test/population) *100) %>%
@@ -420,7 +462,7 @@ w.test_ratio = final.w_latest_covid %>%
 
 w.test_ratio$region <- factor(w.test_ratio$region, levels = w.test_ratio$region[order(w.test_ratio$test.ratio, decreasing = TRUE)]) 
 
-#among the countries that share their cumulative test number
+#Get top 10 countries among the countries that share their cumulative test number
 joined =left_join(w.test_ratio, GDP.ranking, by="region")
 
 top10.test_ratio=  joined%>%
@@ -428,12 +470,10 @@ top10.test_ratio=  joined%>%
   arrange(rank)%>%
   head(10)
 
+#order by GDP rank for selected 10 countries
 top10.test_ratio$region <- factor(top10.test_ratio$region, levels = top10.test_ratio$region[order(match(top10.test_ratio$region,GDP.ranking10$region))]) 
 
-
 ggplot(data = top10.test_ratio, aes(x = region, y=test.ratio))+ theme(axis.text.x = element_text(angle=90, hjust = 1)) +  geom_bar(stat="identity") + labs("Cumulative test number / population rate in top country")
-
-#since some country doesn't share the cumulative test number, it won't contain all 30 countries.
 
 ```
 
@@ -466,76 +506,78 @@ ggarrange(active.change1, active.change2, nrow=1, ncol=2,labels = c("Active case
 ```
 
 
-## Distribution of active, recover, and death in confirmed case
+## Distribution of active, recover, and death in confirmed caseㄴ
 
-  To see the distribution well, I grab the top 15 countries who have most confirmed case. The proportion is inconsistent between countries. However, the interesting part is death proportion. Except Russia,Peru, Germany, it is quite noticeable. 
+  After the ingestions data by time series, I wondered how much the case occupied within confirmed cases. To see the distribution well, I grab the top 15 countries who have most confirmed cases. 
   
+  The proportion is inconsistent between countries. Therefore, it is hard to conclude the trending of each case’s distribution. However, the interesting part is death proportion. Except Russia, Peru, Germany, it is quite noticeable. In the next step, I looked into this death portion.
+  
+
 \  
   
 ```{r, warning=FALSE,echo=FALSE,fig.align = "center"}
-
 #top 15 countries by cumulative test number
 top.test = final.w_latest_covid %>%
   arrange(desc(confirmed))
 
 top15.test = head(top.test$region,15)
 
+# To show it consistently within different countreis, I mutate for each case ratio by confirmed
 have_testing = top.test %>%
   filter (region %in% top15.test) %>%
   mutate ( 
-           total = actives+recovered+deaths,
-           active.ratio = (actives / total )* 100,
-           recover.ratio = (recovered / total )* 100,
-           death.ratio = (deaths / total )* 100) %>%
+           active.ratio = (actives / confirmed )* 100,
+           recover.ratio = (recovered / confirmed )* 100,
+           death.ratio = (deaths / confirmed )* 100) %>%
   arrange(desc(confirmed))
 
 
 top15_test=have_testing %>% gather(c("active.ratio", "recover.ratio", "death.ratio", ), key="type", value="number") %>%
   arrange(desc(confirmed)) %>%
-  select(-c("Date","confirmed","cumulative_test","population","total","actives","recovered","deaths"))
+  select(-c("Date","confirmed","cumulative_test","population","actives","recovered","deaths"))
 
-
+#Show stacked bar plot with showing the % on the bar
 ggplot( data = top15_test, aes(x = region, y=number, fill = type, label = formatC(number,digits = 1, format = "f"))) +
 geom_bar(stat = "identity") +  coord_flip() + xlab("Country") +ylab("Ratio (%)") + ggtitle("Top 10 confirmed countries' ratio of case within testing number") + scale_fill_discrete( name = "Case type", labels = c("Active", "Death","Recover")) + scale_x_discrete(limits = rev((top15.test))) +geom_text(size = 2.5, position = position_stack(vjust = 0.5))
 
 ```
 \  
 
-## Data set 2:
+# Data set 2:
 ## Distribution of death cases by races in United States
 
-  Since the world death rate (deaths / confirmed) is around 7%, I tried to look into more detail information like the distribution of race. Since U.S. is most diverse country and the confirmed number is siginificantly high, I get U.S. death information by race from Centers for Disease Control and  Prevention (CDC) , "https://www.cdc.gov/nchs/nvss/vsrr/covid_weekly/index.htm", since they test most among other countries. 
+  Since the world death rate (deaths / confirmed) is around 7%, I tried to look into more detail information like the distribution of race. Since U.S. is most diverse country and the confirmed number is significantly high, I got U.S. death distribution by race information by race from Centers for Disease Control and Prevention (CDC), https://www.cdc.gov/nchs/nvss/vsrr/covid_weekly/index.htm. 
 
+  From the data, I extract the cumulative United State death distribution with 2 cases -- Distribution of COVID deaths and Weighted distribution of population.
+  
 \  
 
 ```{r message =FALSE, warning=FALSE,echo=FALSE}
-#national "https://www.cdc.gov/nchs/nvss/vsrr/covid_weekly/index.htm"
+#US death distirubtion
 
 N_death_race.raw = read_csv("https://data.cdc.gov/api/views/pj7m-y5uh/rows.csv?accessType=DOWNLOAD&bom=true&format=true") 
 ```
 
 ```{r warning=FALSE,echo=FALSE,fig.height = 2.3, fig.width = 7, fig.align = "center"}
-
+# extract only cumulative US number with 2 cases.
 N_death_race =  N_death_race.raw %>% 
     filter(State == "United States"& Indicator != "Unweighted distribution of population (%)") %>% 
   select(-c("State","Footnote"))
 
-
+# change the label with shorten version
 names(N_death_race)[3] <- "White"
 names(N_death_race)[4] <- "Black or African American"
 names(N_death_race)[5] <- "American Indian or Alaska Native"
 names(N_death_race)[6] <- "Asian"
 
-
+# show the updated date and kabled table of distribution %
 paste("Update date:" , unique(N_death_race$`Data as of`))
 kable(N_death_race[,c(2:8)] ,"markdown")
 
-
+# gather the number to prepare to show in stacked ggplot
 N_death_race=N_death_race %>% gather(c("White", "Black or African American", "American Indian or Alaska Native","Asian", "Hispanic or Latino", "Other"), key="race", value="rate") 
 
-
-
-
+# Show stacked bar plot with showing the % on the bar
 ggplot(N_death_race, aes(x = Indicator, y = rate, fill = race, label = rate)) +
   geom_bar(stat = "identity") +
   geom_text(size = 2.5, position = position_stack(vjust = 0.5))+  coord_flip()+ ylab("Ratio (%)")+ theme(legend.position="bottom",axis.text.x=element_blank(),axis.ticks.x=element_blank(),legend.text=element_text(size=8)) + ggtitle("Distribution of US death cases by race")+guides(fill=guide_legend(nrow=3,byrow=TRUE))
@@ -545,12 +587,12 @@ ggplot(N_death_race, aes(x = Indicator, y = rate, fill = race, label = rate)) +
 
 \  
 
-  After looking at the distribution of death in U.S., there were significantly large percetnatge of death report from White than other races. By looking at this, obviously we cannot conclude a specific race tend to dead more/less from coronavirus. But good resource to see the trend in diverse country.
+  After looking at the distribution of death in U.S., there were significantly large percentage of death report from White than other races even in weighted distribution. By looking at this, obviously we cannot conclude a specific race tend to dead more/less from coronavirus. But good resource to see the trend in diverse country.
 
 ## Conclusion:
 
-  I faced a difficulty to grab right data for testing number. Since some of the countries does not share their testing number, it was hard to show the relationship between testing and confirm or other cases. Even some of them count the number from 2 different sources and they does not match. Also, some of the countries does not update the testing from their source frequently. 
+  I faced a difficulty to grab right data for testing number. Since some of the countries does not share their testing number, it was hard to show the relationship between testing and confirm or other cases. Even some of them count the number from 2 different sources and they do not match. Also, some of the countries does not update the testing from their source frequently. 
   
-  However, after visualize the results, I found out higher ranked countries does not gurantee they can handle the situation better than other countries. Some of lower rank countries did more testing and got more recovered cases. We can do further research  about relapse cases if we have the data. 
+  However, after visualize the results, I found out higher ranked countries does not guarantee they can handle the situation better than other countries. Some of lower rank countries did more testing and got more recovered cases. We can do further research about relapse cases if we have the data. 
   
-  Also, by the active graph, even though there were some countries have down trend after April, we should keep eyes on the trend becasuse there is a possibility of having second wave of coronavirus. 
+  Also, by the active graph, even though there were some countries have down trend after April, we should keep eyes on the trend because there is a possibility of having second wave of coronavirus.
