@@ -3,7 +3,10 @@ title: "Corona virus data wrangling"
 author: "Yelin Shin"
 date: "5/4/2020"
 output:
+  html_document:
+    df_print: paged
   pdf_document: default
+  word_document: default
 fontsize: 11pt
 ---
 
@@ -15,7 +18,7 @@ knitr::opts_chunk$set(echo = TRUE)
 # Github repository:
 ### https://github.com/YelinShin/2020-Spring-data-wrangling
 
-
+\  
 
 # Introduction:
 
@@ -506,7 +509,7 @@ ggarrange(active.change1, active.change2, nrow=1, ncol=2,labels = c("Active case
 ```
 
 
-## Distribution of active, recover, and death in confirmed caseㄴ
+## Distribution of active, recover, and death in confirmed cases
 
   After the ingestions data by time series, I wondered how much the case occupied within confirmed cases. To see the distribution well, I grab the top 15 countries who have most confirmed cases. 
   
