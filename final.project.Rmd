@@ -259,6 +259,8 @@ GDP.ranking$region[GDP.ranking$region == "congo, democratic republic of the"] <-
 GDP.ranking$region[GDP.ranking$region == "bahamas, the"] <- "the bahamas"
 GDP.ranking$region[GDP.ranking$region == "congo, republic of the"] <- "democratic republic of the congo" 
 
+write.csv(GDP.ranking.raw,"GDP_ranking.csv")
+
 ```
 
 ## Raw table looks like ...
@@ -576,6 +578,8 @@ names(N_death_race)[6] <- "Asian"
 # show the updated date and kabled table of distribution %
 paste("Update date:" , unique(N_death_race$`Data as of`))
 kable(N_death_race[,c(2:8)] ,"markdown")
+
+write.csv(N_death_race,"US_death_distribution_by_race.csv")
 
 # gather the number to prepare to show in stacked ggplot
 N_death_race=N_death_race %>% gather(c("White", "Black or African American", "American Indian or Alaska Native","Asian", "Hispanic or Latino", "Other"), key="race", value="rate") 
